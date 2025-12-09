@@ -1,6 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-83WH5VBG8L"></script>
+    <script>
+        // console.log('GA4 - Script loaded');
+        window.dataLayer = window.dataLayer || [];
+        // console.log('GA4 - DataLayer initialized');
+        
+        function gtag(){ 
+            console.log('GA4 - gtag called with:', arguments);
+            dataLayer.push(arguments);
+        }
+        
+        try {
+            gtag('js', new Date());
+            gtag('config', 'G-83WH5VBG8L');
+            console.log('GA4 - gtag config called');
+        } catch(e) {
+            // console.error('GA4 - Error initializing gtag:', e);
+        }
+        
+        // Debug event to verify GA4 is working
+        gtag('event', 'test_event', {
+            'event_category': 'debug',
+            'event_label': 'Test Event',
+            'value': 1
+        });
+        // console.log('GA4 Debug - Test event sent');
+        
+        // Track game start
+        function trackGameStart() {
+            gtag('event', 'game_start', {
+                'event_category': 'game',
+                'event_label': 'Game Started',
+                'value': 1
+            });
+        }
+
+        // Track game over
+        function trackGameOver(reason, score) {
+            gtag('event', 'game_over', {
+                'event_category': 'game',
+                'event_label': reason || 'Unknown',
+                'value': score || 0,
+                'non_interaction': false
+            });
+        }
+
+        // Track play time
+        let gameStartTime;
+        function startPlayTimeTracking() {
+            gameStartTime = new Date();
+        }
+
+        function trackPlayTime() {
+            if (gameStartTime) {
+                const endTime = new Date();
+                const playTimeSeconds = Math.round((endTime - gameStartTime) / 1000);
+                
+                gtag('event', 'play_time', {
+                    'event_category': 'engagement',
+                    'event_label': 'Game Play Time',
+                    'value': playTimeSeconds
+                });
+                
+                gameStartTime = null;
+            }
+        }
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Samay's Controversy Dodge</title>
@@ -250,6 +318,15 @@
     <button id="mute-btn">🔊</button>
     <audio id="scoreSound" preload="auto">
         <source src="https://files.catbox.moe/kahheh.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="hitSound1" preload="auto">
+        <source src="https://files.catbox.moe/833z7s.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="hitSound2" preload="auto">
+        <source src="https://files.catbox.moe/r74e2i.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="hitSound3" preload="auto">
+        <source src="https://files.catbox.moe/ot19bv.mp3" type="audio/mpeg">
     </audio>
 
     <div id="ui-layer">
@@ -720,7 +797,7 @@
             }
             ctx.textAlign = 'start'; 
         }
-
+        
         update() {
             this.x -= gameSpeed;
         }
@@ -785,6 +862,12 @@
         
         isGameOver = false;
         isPlaying = true;
+        
+        // Track game start
+        if (window.gtag) {
+            trackGameStart();
+            startPlayTimeTracking();
+        }
         scoreDisplay.textContent = score;
         scoreDisplay.classList.remove('hidden');
         gameOverScreen.classList.add('hidden');
@@ -809,10 +892,50 @@
         loop();
     }
 
+        function playRandomHitSound() {
+        if (isMuted) return;
+        
+        try {
+            // Create an array of all possible hit sounds
+            const hitSounds = [
+                document.getElementById('hitSound1'),
+                document.getElementById('hitSound2'),
+                document.getElementById('hitSound3')
+            ];
+            
+            // Filter out any null/undefined sounds (in case some failed to load)
+            const validSounds = hitSounds.filter(sound => sound);
+            
+            if (validSounds.length > 0) {
+                // Pick a random sound from the valid ones
+                const randomIndex = Math.floor(Math.random() * validSounds.length);
+                const sound = validSounds[randomIndex];
+                
+                if (sound) {
+                    sound.currentTime = 0;
+                    sound.play().catch(e => console.log('Hit sound play failed:', e));
+                }
+            }
+        } catch (e) {
+            console.error('Error in playRandomHitSound:', e);
+        }
+    }
+    
     function gameOver(reason) {
         isGameOver = true;
         isPlaying = false;
-        lastDeathReason = reason || "Controversy"; 
+        
+        // Track game over and play time
+        if (window.gtag) {
+            trackGameOver(reason, score);
+            trackPlayTime();
+        }
+        lastDeathReason = reason || "Controversry";
+        
+        // Play a random hit sound when game over occurs due to collision
+        if (!isMuted) {
+            playRandomHitSound();
+        }
         
         bgMusic.pause();
         bgMusic.currentTime = 0;
